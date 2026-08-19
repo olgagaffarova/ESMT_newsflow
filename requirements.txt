@@ -1,0 +1,5 @@
+pandas>=2.2,<3
+nbconvert>=7.16,<8
+ipykernel>=6.29,<7
+streamlit>=1.40,<2
+
