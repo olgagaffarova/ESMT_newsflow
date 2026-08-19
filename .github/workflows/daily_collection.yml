@@ -1,0 +1,55 @@
+name: Daily ranking news collector
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC. This is 07:17 in Berlin in summer and 06:17 in winter.
+    - cron: "17 5 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ranking-news-collector
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Register notebook kernel
+        run: python -m ipykernel install --user --name python3 --display-name "Python 3"
+
+      - name: Run collector notebook
+        run: |
+          jupyter nbconvert \
+            --to notebook \
+            --execute ESMT_Rankings_Intelligence_Cron_Test.ipynb \
+            --output /tmp/ESMT_Rankings_Intelligence_Cron_Test_executed.ipynb \
+            --ExecutePreprocessor.kernel_name=python3 \
+            --ExecutePreprocessor.timeout=180
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Update ranking news data"
+            git push
+          fi
